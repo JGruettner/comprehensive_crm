@@ -16,3 +16,8 @@ Base the revenue prediction on multiple attributes and detect correlations
 
 **3. Adding More Attributes and Keras LSTM**
 Calculate customer KPIs, like RFM and CLV, and use a neuronal network to make revenue predictions
+
+
+
+**Credit for the great northwind database goes to**
+https://github.com/conwid/awesome-northwind
