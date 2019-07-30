@@ -20,4 +20,4 @@ Calculate customer KPIs, like RFM and CLV, and use a neuronal network to make re
 
 
 **Credit for the great northwind database goes to**
-https://github.com/conwid/awesome-northwind
+conwid/awesome-northwind
