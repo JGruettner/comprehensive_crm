@@ -341,14 +341,4 @@ for i in cols:
     print('rmse value for', i, 'is : ', sqrt(mean_squared_error(pred[i], valid[i])))
 
 
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
 
