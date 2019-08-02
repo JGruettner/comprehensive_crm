@@ -235,7 +235,7 @@ weekly_pred2 = weekly_pred.drop(['pred_y'], axis=1)
 weekly_pred2.head(10) #as test dataset
 
 
-# In[24]:
+# In[20]:
 
 
 weekly_orig =weekly.drop(['date', 'lag-1', 'y'], axis=1)
@@ -249,7 +249,7 @@ print(y_train.shape)
 print(y_test.shape)
 
 
-# In[40]:
+# In[21]:
 
 
 from sklearn.ensemble import RandomForestRegressor 
@@ -257,7 +257,7 @@ from sklearn.metrics import mean_absolute_error
 from time import time  
 
 t = time() 
-rf=RandomForestRegressor(n_estimators=120, criterion='mse', max_depth=None, min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, bootstrap=True, oob_score=False, n_jobs=-1, random_state=None, verbose=0, warm_start=False).fit(X_train,y_train) 
+rf=RandomForestRegressor(n_estimators=50, criterion='mse', max_depth=None, min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, bootstrap=True, oob_score=False, n_jobs=-1, random_state=None, verbose=0, warm_start=False).fit(X_train,y_train) 
 y_pred3 = rf.predict(X_test) 
 
 def mean_absolute_percentage_error(y_true, y_pred): 
@@ -268,20 +268,20 @@ print(mean_absolute_percentage_error(y_true=y_train.loc[y_train.index=='2018-05-
 print('Benötigte Zeit: {} mins'.format(round((time() - t) / 60, 2)))  
 
 
-# In[38]:
+# In[22]:
 
 
 rf_coef = pd.DataFrame(data=np.round_(rf.feature_importances_, decimals=3), index=X_train.columns)   
 rf_coef.sort_values(by=0, ascending=False)
 
 
-# In[41]:
+# In[23]:
 
 
 from sklearn.ensemble import GradientBoostingRegressor
 
 t = time() 
-gb = GradientBoostingRegressor(loss='ls', learning_rate=0.1, n_estimators=100, subsample=1.0, criterion='friedman_mse', min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_depth=5, min_impurity_decrease=0.0, min_impurity_split=None, init=None, random_state=None, max_features=None, alpha=0.9, verbose=0, max_leaf_nodes=None, warm_start=False, presort='auto', validation_fraction=0.1, n_iter_no_change=None, tol=0.0001).fit(X_train,y_train)
+gb = GradientBoostingRegressor(loss='ls', learning_rate=0.1, n_estimators=50, subsample=1.0, criterion='friedman_mse', min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_depth=10, min_impurity_decrease=0.0, min_impurity_split=None, init=None, random_state=None, max_features=None, alpha=0.9, verbose=0, max_leaf_nodes=None, warm_start=False, presort='auto', validation_fraction=0.1, n_iter_no_change=None, tol=0.0001).fit(X_train,y_train)
 y_pred4 = gb.predict(X_test) 
 
 def mean_absolute_percentage_error(y_true, y_pred): 
@@ -294,51 +294,64 @@ print('Benötigte Zeit: {} mins'.format(round((time() - t) / 60, 2)))
 
 # # Better results with Vector Autoregression Moving-Average with Exogenous Regressors (VARMAX)
 
-# In[ ]:
+# In[24]:
 
 
+#from statsmodels.tsa.statespace.varmax import VARMAX
 import statsmodels.api as sm
 exog = weekly['y']
-endog = weekly['avg_quantity', 'sum_orders','avg_unitprice', 'USA', 'Germany', 'Brazil']
-varmax_model = sm.tsa.VARMAX(endog=endog, order=(2,0), trend='nc', exog=exog)
-#res = mod.fit(maxiter=1000, disp=False)
+endog = weekly[['avg_quantity', 'sum_orders','avg_unitprice', 'USA', 'Germany', 'Brazil']]
+varmax_model = sm.tsa.VARMAX(endog=endog, order=(1,0), trend='ct', enforce_stationarity= True,  exog=exog)
+varmax_res = varmax_model.fit(maxiter=1000, disp=False)
 
-#print(res.summary())
+print(varmax_res.summary())
+
+
+# In[25]:
+
+
+#AIC criteria reach their minimum
+
+for i in range(5):
+    i += 1
+    varmax_model2 = sm.tsa.VARMAX(endog=endog, order=(i,0), trend='nc', enforce_stationarity= True,  exog=exog)
+    model_result = varmax_model2.fit(maxiter=1000, disp=False)
+    print('Order = ', i)
+    print('AIC: ', model_result.aic)
+    print('BIC: ', model_result.bic)
+    print('HQIC: ', model_result.hqic)
+
+
+# In[26]:
+
+
+#varmax_res.forecast(exog=exog, steps=7)
+#varmax_res.get_prediction
+#varmax_res.plot_diagnostics()
+varmax_values= varmax_res.fittedvalues
+
+
+# In[27]:
+
+
+weekly_pred2=pd.merge(weekly1, varmax_values.add_prefix('pred_'), left_index=True, right_index=True)
+weekly_pred2[['avg_quantity', 'pred_avg_quantity']].astype(int).plot()
+
+
+# In[28]:
+
+
+import numpy as np
+
+def mean_absolute_percentage_error(y_true, y_pred): 
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+
+mean_absolute_percentage_error(y_true=weekly_pred2['avg_quantity'], y_pred=weekly_pred2['pred_avg_quantity'])
 
 
 # In[ ]:
 
-
-
-predicted_result = res.predict(start=0, end=110)
-res.plot_diagnostics()
-
-
-#https://www.statsmodels.org/dev/examples/notebooks/generated/statespace_varmax.html
-
-#predicted_result = res.predict(start=0, end=95)
-#res.plot_diagnostics()
-
-
-# Predicting closing price of Google and microsoft
-#train_sample = weekly['diff'].values
-#model = sm.tsa.VARMAX(train_sample,trend='c')
-#äresult = model.fit(maxiter=1000,disp=False)
-#print(result.summary())
-
-
-# In[ ]:
-
-
-#converting predictions to dataframe
-pred = pd.DataFrame(index=range(0,len(prediction)),columns=[cols])
-for j in range(0,13):
-    for i in range(0, len(prediction)):
-       pred.iloc[i][j] = prediction[i][j]
-
-#check rmse
-for i in cols:
-    print('rmse value for', i, 'is : ', sqrt(mean_squared_error(pred[i], valid[i])))
 
 
 
