@@ -335,6 +335,7 @@ varmax_values= varmax_res.fittedvalues
 
 
 weekly_pred2=pd.merge(weekly1, varmax_values.add_prefix('pred_'), left_index=True, right_index=True)
+weekly_pred2 = weekly_pred2[:-1]
 weekly_pred2[['avg_quantity', 'pred_avg_quantity']].astype(int).plot()
 
 
