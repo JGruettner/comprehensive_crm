@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# **goal for this script is to forecast an entire dataframe with multiple attributes, for example the importance of foreign markets, testing different models**
+# - Does the script forecast multiple attribtes of a dataframe?
+# - Does the script calculate the importance of foreign markets?
+# - Does the script test the accuracy of different prediction models?
+
 # In[1]:
 
 
@@ -350,6 +355,11 @@ def mean_absolute_percentage_error(y_true, y_pred):
 
 mean_absolute_percentage_error(y_true=weekly_pred2['avg_quantity'], y_pred=weekly_pred2['pred_avg_quantity'])
 
+
+# **goal for this script is to forecast an entire dataframe with multiple attributes, for example the importance of foreign markets, testing different models**
+# - Does the script forecast multiple attribtes of a dataframe? **Yes**
+# - Does the script calculate the importance of foreign markets? **Yes**
+# - Does the script test the accuracy of different prediction models? **Yes**
 
 # In[ ]:
 
