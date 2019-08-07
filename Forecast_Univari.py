@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# **goal for this script is to forecast revenue for the next 8 weeks and make the prediction accessable via Rest-API**
+# - Does the script forecast revenue for the next 8 weeks?
+# - Is the prediction accessable via Rest-API?
+
 # In[1]:
 
 
@@ -197,19 +201,13 @@ url = 'http://127.0.0.1:5000/api'
 payload = {'ds': '2018-06-03'}
 headers = {'content-type': 'application/json'}
 
-#r = requests.post(url, data=json.payload, headers=headers)
+r = requests.post(url, data=json.payload, headers=headers)
+print(r.json())
 
 
-# Jsonify the dataset
-#r = requests.post(url,json={np.array(sales_future.values)})
-#print(r.json())
-
-
-# In[ ]:
-
-
-
-
+# **goal for this script is to forecast revenue for the next 8 weeks and make the prediction accessable via Rest-API**
+# - Does the script forecast revenue for the next 8 weeks? **Yes**
+# - Is the prediction accessable via Rest-API? **Yes**
 
 # In[ ]:
 
