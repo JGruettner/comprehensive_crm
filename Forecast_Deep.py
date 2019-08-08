@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# **goal for this script is to calculate fundamental KPI scores and to deploy a neuronal network predicting revenue**
+# - Does the script calculate fundamental KPI scores for customers and products?
+# - Does the revenue prediction use a neuronal network?
+
 # # Customer lifetime value (CLV) can help to answer the most important questions about sales:
 # 
 # - How to Identify the most profitable customers?
@@ -14,7 +18,7 @@
 # - Adjust communication campaigns and messages
 # - Cross-sell and up-sell based on individual patterns of buying
 
-# In[ ]:
+# In[1]:
 
 
 from datetime import date
@@ -34,11 +38,13 @@ conn = sqlite3.connect('northwind.db')
 orders = pd.read_sql_query("select * from Orders;", conn)
 order_detail = pd.read_sql_query("select * from OrderDetails;", conn)
 customer = pd.read_sql_query("select * from Customers;", conn)
+products = pd.read_sql_query("select * from Products;", conn)
+categories = pd.read_sql_query("select * from Categories;", conn)
 
 order_detail.head()
 
 
-# In[ ]:
+# In[2]:
 
 
 # Joining Tables to MasterDataSet
@@ -47,16 +53,16 @@ mds2 = pd.merge(mds, customer, on='CustomerID', how='left')
 mds2.info()
 
 
-# In[ ]:
+# In[3]:
 
 
 #Calculate total purchase aga revenue
 mds2['TotalPurchase'] = (mds2['Quantity'] * mds2['UnitPrice']) - (mds2['Quantity'] * mds2['UnitPrice']* mds2['Discount'])
 mds2['OrderDate'] = pd.to_datetime(mds2['OrderDate'])
-mds2['CustomerID'].shape
+mds2.groupby('CustomerID').mean()
 
 
-# In[ ]:
+# In[4]:
 
 
 # Calculate basic RFM Score manually
@@ -73,7 +79,7 @@ customer_detail['avg_order_value']=customer_detail['monetary']/customer_detail['
 customer_detail.head(20)
 
 
-# In[ ]:
+# In[5]:
 
 
 # Zu Sicherheit die Programmierung des Backups
@@ -83,7 +89,7 @@ backup = summary_data_from_transaction_data(mds2, 'CustomerID', 'OrderDate', obs
 print(backup.head())
 
 
-# In[ ]:
+# In[6]:
 
 
 # Summarise into RFM-Score
@@ -109,13 +115,11 @@ CountStatus.plot.barh()
 # - Beta Geometric/Negative Binomial Distribution (BG/NBD) model is an improvement of the Pareto/NBD model 
 # 
 # **Afterwards we estimate a customer’s average order value, to get the monetary involved**
-# - a Gamma Gamma model to estimate average order value 
-# - Gamma-Gamma submodel is used on top of the BG/NBD model to estimate the monetary value of transactions
+# - Gamma Gamma model estimates average order values 
+# - this model is used on top of the BG/NBD model to estimate the monetary value of transactions
 # - We can only rely on a customer’s past purchases and characterizing events, like website visits, reviews, etc.
-# 
-# - plot_probability_alive_matrix
 
-# In[ ]:
+# In[7]:
 
 
 #https://lifetimes.readthedocs.io/en/master/lifetimes.html
@@ -126,7 +130,7 @@ mbgnbd.fit(customer_detail['frequency'], customer_detail['recency'], customer_de
 mbgnbd.summary
 
 
-# In[ ]:
+# In[8]:
 
 
 from lifetimes import BetaGeoFitter
@@ -135,28 +139,22 @@ bgf.fit(customer_detail['frequency'], customer_detail['recency'], customer_detai
 bgf.summary
 
 
-# In[ ]:
+# In[9]:
 
 
+#from lifetimes.plotting import plot_probability_alive_matrix
 from lifetimes.plotting import plot_frequency_recency_matrix
 plot_frequency_recency_matrix(mbgnbd)
 
 
-# In[ ]:
-
-
-from lifetimes.plotting import plot_probability_alive_matrix
-plot_probability_alive_matrix(bgf)
-
-
-# In[ ]:
+# In[10]:
 
 
 from lifetimes.plotting import plot_period_transactions
 plot_period_transactions(bgf)
 
 
-# In[ ]:
+# In[11]:
 
 
 t = 90 # days to predict in the future 
@@ -167,14 +165,7 @@ customer_detail['pred_90d_bgf'] = bgf.conditional_expected_number_of_purchases_u
 customer_detail.sort_values(by='pred_90d_bgf').tail(5)
 
 
-# In[ ]:
-
-
-# Get expected and actual repeated cumulative transactions.
-from lifetimes.utils import expected_cumulative_transactions
-
-
-# In[ ]:
+# In[12]:
 
 
 #highest expected purchases in the next period
@@ -186,21 +177,21 @@ customer_detail['pred_90d_mbgnbd'] = mbgnbd.conditional_expected_number_of_purch
 customer_detail.head()
 
 
-# In[ ]:
+# In[13]:
 
 
 customer_detail['p_alive'] = mbgnbd.conditional_probability_alive(customer_detail['frequency'], customer_detail['recency'], customer_detail['T'])
 customer_detail.head()
 
 
-# In[ ]:
+# In[14]:
 
 
-#The Gamma-Gamma modelassumes that there is no relationship between the monetary value and the purchase frequency
+#The Gamma-Gamma model assumes that there is no relationship between the monetary value and the purchase frequency
 customer_detail[['avg_order_value','frequency']].corr()
 
 
-# In[ ]:
+# In[15]:
 
 
 #It is used to estimate the average monetary value of customer transactions
@@ -215,7 +206,7 @@ print(gg.conditional_expected_average_profit(
     ).head(10))
 
 
-# In[ ]:
+# In[16]:
 
 
 customer_detail['clv']=gg.customer_lifetime_value(
@@ -227,13 +218,135 @@ customer_detail['clv']=gg.customer_lifetime_value(
     time=t,
     discount_rate=0
 ).astype(int)
-customer_detail.head()
+customer_detail[['frequency', 'pred_90d_bgf', 'monetary', 'avg_order_value', 'clv']].head()
 
 
-print(gg.conditional_expected_average_profit(
-        customer_detail['frequency'],
-        customer_detail['monetary']
-    ).head(10))
+# In[17]:
+
+
+customer_detail['exp_orders'] = (customer_detail['clv']/gg.conditional_expected_average_profit(customer_detail['frequency'], customer_detail['avg_order_value'])).astype(int)
+customer_detail['potential']=100-((100/customer_detail['clv'])*customer_detail['monetary'])
+customer_detail[['frequency', 'exp_orders', 'monetary', 'avg_order_value', 'clv', 'potential']].head(10)
+
+
+# In[18]:
+
+
+#Da es sich um ein komplexes Modell handelt, ist der Zusammenhang nicht linear
+plt.scatter(customer_detail['exp_orders'], customer_detail['clv'], alpha=0.5)
+plt.show()
+
+
+# In[19]:
+
+
+# Currently the dataset provides 47 attributes to predict the revenue
+mds3 = pd.merge(mds2, customer_detail, on='CustomerID', how='left')
+#mds3.shape
+mds3.info()
+
+
+# # Calculating basic product sales KPIs
+# - Share of product category in sales
+# - product category growth (Compound Annual Growth Rates, also known as CAGR)
+# - price development (Exponential Moving Average (EMA),more weight to the recent prices)
+# - instead of categories we could use products, but categories give a better overview
+
+# In[20]:
+
+
+prod_details=pd.merge(mds3[['OrderDate', 'ProductID', 'Quantity', 'TotalPurchase']], products, on='ProductID', how='left')
+prod_details2 = pd.merge(prod_details, categories, on='CategoryID', how='left')
+prod_details2['OrderYear'] = prod_details2['OrderDate'].dt.year
+prod_details2.head()
+
+
+# In[22]:
+
+
+cat_details = prod_details2.groupby('CategoryName')['OrderYear'].value_counts().unstack()
+print(prod_details2['OrderDate'].max())
+d1 = date(2018, 1, 1)
+cat_details[2018] = cat_details[2018].apply(lambda x: x*1.58333)
+print(cat_details)
+
+
+# In[23]:
+
+
+cat_details2 =cat_details.pct_change(axis='columns')
+cat_details2
+
+
+# In[35]:
+
+
+# bei gelegenheit über eine Funktion
+cat_details2['growth'] =cat_details2[2017]*0.2+cat_details2[2018]*0.8
+cat_details2
+
+
+# In[33]:
+
+
+cat_details.ewm(com=0.5, axis='columns').mean()
+
+
+# In[26]:
+
+
+cat_details3=cat_details2.join(pd.DataFrame((100/prod_details2['TotalPurchase'].sum())*prod_details2.groupby('CategoryName')['TotalPurchase'].sum()))
+cat_details3[mov_growth] = cat_details3
+cat_details3 = cat_details.drop([2016], axis=1)
+
+
+# In[ ]:
+
+
+cat_details = pd.DataFrame((100/prod_details2['TotalPurchase'].sum())*prod_details2.groupby('CategoryName')['TotalPurchase'].sum())
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+print(prod_details2['OrderDate'].max())
+d1 = date(2018, 1, 1)
+cat_details2[2018] = cat_details2[2018].apply(lambda x: x*1.58333)
+print(cat_details2)
+
+
+# In[ ]:
+
+
+cat_details2['CAGR'] = cat_details2.T.pct_change().add(1).prod().pow(1./(len(cat_details2.columns) - 1)).sub(1)
+cat_details2
+
+
+# In[ ]:
+
+
+cat_details2.pct_change(axis='columns')
+
+
+# In[ ]:
+
+
+from scipy import stats
+from sklearn.linear_model import LinearRegression
+X = cat_details2[[2016,2017,2018]]
+y = cat_details2['TotalPurchase']
+#cat_details2['growth_rate'] = stats.linregress(X,y)
+#cat_details2['growth_rate']=np.polyfit(X,y)
+lm = LinearRegression()
+model = lm.fit(X, y)
+lm.get_params
+#model.coef_
 
 
 # In[ ]:
